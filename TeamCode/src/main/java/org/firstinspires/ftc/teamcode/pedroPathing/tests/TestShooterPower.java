@@ -4,96 +4,69 @@ import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-@Autonomous(name = "Limelight Multi-Pipeline Detection", group = "Vision")
+@Autonomous(name = "Shooter Power Test", group = "Vision")
 public class TestShooterPower extends LinearOpMode {
 
+    private DcMotorEx shooterMotor;
     private Limelight3A limelight;
 
     @Override
     public void runOpMode() throws InterruptedException {
-        // Initialize limelight - make sure "limelight" matches your hardware config name
+        // Hardware initialization
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        shooterMotor = hardwareMap.get(DcMotorEx.class, "shooterMotor");
 
         telemetry.setMsTransmissionInterval(11);
 
-        // Start the limelight before waitForStart() for initialization
+        // Start Limelight early
         limelight.start();
 
-        telemetry.addData("Status", "Initialized - Ready to test pipelines");
+        telemetry.addData("Status", "Initialized");
         telemetry.update();
 
         waitForStart();
 
         while (opModeIsActive()) {
-            // Clear previous telemetry
+
             telemetry.clear();
 
-            // Always show we're in the loop
-            telemetry.addData("Loop Status", "Running...");
-
-            boolean foundInPipeline0 = false;
-            boolean foundInPipeline1 = false;
-            boolean foundInPipeline2 = false;
-
-            // Check Pipeline 0
+            // Switch to pipeline 0 (your AprilTag 21 pipeline)
             limelight.pipelineSwitch(0);
-            sleep(50);
-            LLResult result0 = limelight.getLatestResult();
+            sleep(150);  // Limelight needs ~120-150ms to stabilize
 
-            if (result0 != null && result0.isValid()) {
-                foundInPipeline0 = true;
-                telemetry.addData("Pipeline 0", "AprilTag detected!");
+            LLResult result = limelight.getLatestResult();
+
+            if (result != null && result.isValid()) {
+                double Ta = result.getTa();  // Tag area
+                telemetry.addData("Pipeline 0", "Detection");
+                telemetry.addData("Ta", Ta);
+
+                // ---- SAFE MOTOR POWER FORMULA ----
+                // Prevent Ta = 0 (divide-by-zero crash)
+                double safeTa = Math.max(Ta, 0.01);
+
+                // Inverse relationship (closer tag = more power)
+                double motorPower = 1.0 / safeTa;
+
+                // Limit power into valid FTC motor range
+                motorPower = Math.min(motorPower, 1.0);
+
+                shooterMotor.setPower(-motorPower);
+
+                telemetry.addData("Motor Power", motorPower);
+
             } else {
-                telemetry.addData("Pipeline 0", "No detection");
+                telemetry.addData("Pipeline 0", "NO TAG FOUND");
+                shooterMotor.setPower(0);
             }
 
-            // Check Pipeline 1 only if not found in Pipeline 0
-            if (!foundInPipeline0) {
-                limelight.pipelineSwitch(1);
-                sleep(50); // Give time for pipeline switch
-                LLResult result1 = limelight.getLatestResult();
-
-                if (result1 != null && result1.isValid()) {
-                    foundInPipeline1 = true;
-                    telemetry.addData("Pipeline 1", "AprilTag detected!");
-                } else {
-                    telemetry.addData("Pipeline 1", "No detection");
-                }
-            }
-
-            // Check Pipeline 2 only if not found in Pipeline 0 or 1
-            if (!foundInPipeline0 && !foundInPipeline1) {
-                limelight.pipelineSwitch(2);
-                sleep(50); // Give time for pipeline switch
-                LLResult result2 = limelight.getLatestResult();
-
-                if (result2 != null && result2.isValid()) {
-                    foundInPipeline2 = true;
-                    telemetry.addData("Pipeline 2", "AprilTag detected!");
-                } else {
-                    telemetry.addData("Pipeline 2", "No detection");
-                }
-            }
-
-            // Determine the result based on detections
-            if (foundInPipeline0) {
-                telemetry.addData("Result", "GREEN - PURPLE - PURPLE");
-            } else if (foundInPipeline1) {
-                telemetry.addData("Result", "PURPLE - GREEN - PURPLE");
-            } else if (foundInPipeline2) {
-                telemetry.addData("Result", "PURPLE - PURPLE - GREEN");
-            } else {
-                telemetry.addData("Result", "NO APRILTAG DETECTED IN ANY PIPELINE");
-            }
-
-            // MUST have this to see updates
             telemetry.update();
-
-            sleep(200); // Slow it down for easier reading and pipeline switching
+            sleep(50);
         }
 
-        // Stop the limelight when done
+        // Stop Limelight safely
         limelight.stop();
     }
 }

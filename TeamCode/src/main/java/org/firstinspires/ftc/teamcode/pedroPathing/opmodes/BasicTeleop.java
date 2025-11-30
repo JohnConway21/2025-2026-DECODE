@@ -1,9 +1,12 @@
 package org.firstinspires.ftc.teamcode.pedroPathing.Opmodes;
 
+import static android.os.SystemClock.sleep;
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 
 @TeleOp(name = "Basic TeleOp")
 public class BasicTeleop extends OpMode {
@@ -13,6 +16,9 @@ public class BasicTeleop extends OpMode {
     private DcMotor rightFront;
     private DcMotor leftRear;
     private DcMotor rightRear;
+    private DcMotor intake;
+    private DcMotor shooter;
+    private Servo transferFlap;
 
 
     @Override
@@ -22,12 +28,15 @@ public class BasicTeleop extends OpMode {
         rightFront = hardwareMap.get(DcMotor.class, "rightFront");
         leftRear = hardwareMap.get(DcMotor.class, "leftRear");
         rightRear = hardwareMap.get(DcMotor.class, "rightRear");
+        intake = hardwareMap.get(DcMotor.class, "intakeMotor");
+        shooter = hardwareMap.get(DcMotor.class, "shooter");
+        transferFlap = hardwareMap.get(Servo.class, "transferFlap");
 
         // Reverse one side if necessary
         rightRear.setDirection(DcMotor.Direction.REVERSE);
         leftRear.setDirection(DcMotor.Direction.FORWARD);
         leftFront.setDirection(DcMotor.Direction.FORWARD);
-        rightFront.setDirection((DcMotorSimple.Direction.REVERSE));
+        rightFront.setDirection((DcMotor.Direction.REVERSE));
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -44,8 +53,10 @@ public class BasicTeleop extends OpMode {
         double drive = -gamepad1.left_stick_y;
         double strafe = gamepad1.left_stick_x;
         double turn = -gamepad1.right_stick_x;
-
-
+        double intakePower = gamepad1.left_trigger;
+        double shooterPower = 0.75;
+        double transferUp = 1;
+        double transferDown = 0;
 
         // Mecanum drive calculations
         double flPower = (drive + strafe + turn);
@@ -59,11 +70,26 @@ public class BasicTeleop extends OpMode {
         leftRear.setPower(blPower);
         rightRear.setPower(brPower);
 
+        intake.setPower(intakePower);
+
+        if (gamepad1.a) {
+            shooter.setPower(shooterPower);
+            sleep(1000);
+            transferFlap.setPosition(transferUp);
+            sleep(100);
+            transferFlap.setPosition(transferDown);
+        }
+
+        if (gamepad1.right_trigger > 0.1) {
+            intake.setPower(1);
+        }
+
         // Telemetry for debugging
         telemetry.addData("FL", flPower);
         telemetry.addData("FR", frPower);
         telemetry.addData("BL", blPower);
         telemetry.addData("BR", brPower);
         telemetry.update();
+
     }
 }
